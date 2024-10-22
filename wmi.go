@@ -132,6 +132,7 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 	// be sure teardown happens in the reverse
 	// order from that which they were created
 	deferFn := func() {
+		defer comshim.Done()
 		if serviceRaw != nil {
 			serviceRaw.Clear()
 		}
@@ -141,7 +142,6 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 		if unknown != nil {
 			unknown.Release()
 		}
-		comshim.Done()
 	}
 
 	// if we error'ed here, clean up immediately
