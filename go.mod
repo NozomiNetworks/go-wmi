@@ -9,4 +9,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0
 )
 
-require golang.org/x/sys v0.22.0 // indirect
+require (
+	go.uber.org/goleak v1.3.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+)
