@@ -37,6 +37,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NozomiNetworks/go-comshim"
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 )
@@ -140,7 +141,7 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 		if unknown != nil {
 			unknown.Release()
 		}
-		ole.CoUninitialize()
+		comshim.Done()
 	}
 
 	// if we error'ed here, clean up immediately
@@ -151,7 +152,7 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 		}
 	}()
 
-	err = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	err = comshim.TryAdd(1)
 	if err != nil {
 		oleCode := err.(*ole.OleError).Code()
 		if oleCode != ole.S_OK && oleCode != S_FALSE {
@@ -467,7 +468,7 @@ func (c *Client) loadEntity(dst interface{}, src *ole.IDispatch) (errFieldMismat
 					Reason:     "not a Float64",
 				}
 			}
-		
+
 		default:
 			if f.Kind() == reflect.Slice {
 				switch f.Type().Elem().Kind() {

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/NozomiNetworks/go-comshim"
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 )
@@ -80,7 +81,7 @@ func (s *SWbemServices) process(initError chan error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	err := comshim.TryAdd(1)
 	if err != nil {
 		oleCode := err.(*ole.OleError).Code()
 		if oleCode != ole.S_OK && oleCode != S_FALSE {
@@ -88,7 +89,7 @@ func (s *SWbemServices) process(initError chan error) {
 			return
 		}
 	}
-	defer ole.CoUninitialize()
+	defer comshim.Done()
 
 	unknown, err := oleutil.CreateObject("WbemScripting.SWbemLocator")
 	if err != nil {

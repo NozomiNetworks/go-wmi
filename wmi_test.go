@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/NozomiNetworks/go-comshim"
 	ole "github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 )
@@ -202,6 +203,38 @@ func TestCreateQuery(t *testing.T) {
 	}
 }
 
+func TestWMIConcurrent(t *testing.T) {
+	defer comshim.WaitDone()
+	limit := 128
+	fmt.Println("Total Iterations:", limit)
+	runtime.GOMAXPROCS(8)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < limit; i++ {
+			var dst []Win32_PerfRawData_PerfDisk_LogicalDisk
+			q := CreateQuery(&dst, "")
+			err := Query(q, &dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i > -limit; i-- {
+			var dst []Win32_OperatingSystem
+			q := CreateQuery(&dst, "")
+			err := Query(q, &dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}()
+	wg.Wait()
+}
+
 // Run using: go test -run TestMemoryWMISimple -timeout 60m
 func _TestMemoryWMISimple(t *testing.T) {
 	start := time.Now()
@@ -283,14 +316,14 @@ func getRSS(url string, xmlhttp *ole.IDispatch, MinimalTest bool) (int, error) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
-		err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+		err := comshim.TryAdd(1)
 		if err != nil {
 			oleCode := err.(*ole.OleError).Code()
 			if oleCode != ole.S_OK && oleCode != S_FALSE {
 				return 0, err
 			}
 		}
-		defer ole.CoUninitialize()
+		defer comshim.Done()
 
 		//fmt.Println("CreateObject Microsoft.XMLHTTP")
 		unknown, err := oleutil.CreateObject("Microsoft.XMLHTTP")
@@ -394,14 +427,14 @@ func _TestMemoryOLE(t *testing.T) {
 		runtime.LockOSThread()
 		defer runtime.UnlockOSThread()
 
-		err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+		err := comshim.TryAdd(1)
 		if err != nil {
 			oleCode := err.(*ole.OleError).Code()
 			if oleCode != ole.S_OK && oleCode != S_FALSE {
 				t.Fatal(err)
 			}
 		}
-		defer ole.CoUninitialize()
+		defer comshim.Done()
 
 		//fmt.Println("CreateObject Microsoft.XMLHTTP")
 		unknown, err = oleutil.CreateObject("Microsoft.XMLHTTP")
