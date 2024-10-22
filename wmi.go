@@ -28,10 +28,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,8 +38,6 @@ import (
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 )
-
-var l = log.New(os.Stdout, "", log.LstdFlags)
 
 var (
 	ErrInvalidEntityType = errors.New("wmi: invalid entity type")
@@ -132,7 +127,6 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 	// be sure teardown happens in the reverse
 	// order from that which they were created
 	deferFn := func() {
-		defer comshim.Done()
 		if serviceRaw != nil {
 			serviceRaw.Clear()
 		}
@@ -151,14 +145,6 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 			deferFn()
 		}
 	}()
-
-	err = comshim.TryAdd(1)
-	if err != nil {
-		oleCode := err.(*ole.OleError).Code()
-		if oleCode != ole.S_OK && oleCode != S_FALSE {
-			return nil, nil, err
-		}
-	}
 
 	unknown, err = oleutil.CreateObject("WbemScripting.SWbemLocator")
 	if err != nil {
@@ -189,6 +175,8 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 // https://docs.microsoft.com/en-us/windows/desktop/WmiSdk/swbemlocator-connectserver
 // for details.
 func (c *Client) CallMethod(connectServerArgs []interface{}, className, methodName string, params []interface{}) (int32, error) {
+	comshim.Add(1)
+	defer comshim.Done()
 	service, cleanup, err := c.coinitService(connectServerArgs...)
 	if err != nil {
 		return 0, fmt.Errorf("coinit: %v", err)
@@ -240,9 +228,9 @@ func (c *Client) Query(query string, dst interface{}, connectServerArgs ...inter
 
 	lock.Lock()
 	defer lock.Unlock()
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
+	comshim.Add(1)
+	defer comshim.Done()
 	service, cleanup, err := c.coinitService(connectServerArgs...)
 	if err != nil {
 		return err
