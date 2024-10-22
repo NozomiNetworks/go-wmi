@@ -82,6 +82,7 @@ func (s *SWbemServices) process(initError chan error) {
 	defer runtime.UnlockOSThread()
 
 	err := comshim.TryAdd(1)
+	defer comshim.Done()
 	if err != nil {
 		oleCode := err.(*ole.OleError).Code()
 		if oleCode != ole.S_OK && oleCode != S_FALSE {
@@ -89,7 +90,6 @@ func (s *SWbemServices) process(initError chan error) {
 			return
 		}
 	}
-	defer comshim.Done()
 
 	unknown, err := oleutil.CreateObject("WbemScripting.SWbemLocator")
 	if err != nil {

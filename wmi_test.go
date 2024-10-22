@@ -340,13 +340,13 @@ func getRSS(url string, xmlhttp *ole.IDispatch, MinimalTest bool) (int, error) {
 		defer runtime.UnlockOSThread()
 
 		err := comshim.TryAdd(1)
+		defer comshim.Done()
 		if err != nil {
 			oleCode := err.(*ole.OleError).Code()
 			if oleCode != ole.S_OK && oleCode != S_FALSE {
 				return 0, err
 			}
 		}
-		defer comshim.Done()
 
 		//fmt.Println("CreateObject Microsoft.XMLHTTP")
 		unknown, err := oleutil.CreateObject("Microsoft.XMLHTTP")
@@ -451,13 +451,13 @@ func _TestMemoryOLE(t *testing.T) {
 		defer runtime.UnlockOSThread()
 
 		err := comshim.TryAdd(1)
+		defer comshim.Done()
 		if err != nil {
 			oleCode := err.(*ole.OleError).Code()
 			if oleCode != ole.S_OK && oleCode != S_FALSE {
 				t.Fatal(err)
 			}
 		}
-		defer comshim.Done()
 
 		//fmt.Println("CreateObject Microsoft.XMLHTTP")
 		unknown, err = oleutil.CreateObject("Microsoft.XMLHTTP")
