@@ -235,6 +235,29 @@ func TestWMIConcurrent(t *testing.T) {
 	wg.Wait()
 }
 
+func TestCocurrentCoInitializeDoesNotPanic(t *testing.T) {
+	defer comshim.WaitDone()
+	limit := 128
+	fmt.Println("Total Iterations:", limit)
+	runtime.GOMAXPROCS(8)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < limit; i++ {
+			var dst []Win32_PerfRawData_PerfDisk_LogicalDisk
+			q := CreateQuery(&dst, "")
+			_ = Query(q, &dst)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		defer ole.CoUninitialize()
+		_ = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	}()
+	wg.Wait()
+}
+
 // Run using: go test -run TestMemoryWMISimple -timeout 60m
 func _TestMemoryWMISimple(t *testing.T) {
 	start := time.Now()
