@@ -28,20 +28,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
-	"os"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/NozomiNetworks/go-comshim"
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 )
-
-var l = log.New(os.Stdout, "", log.LstdFlags)
 
 var (
 	ErrInvalidEntityType = errors.New("wmi: invalid entity type")
@@ -140,7 +136,6 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 		if unknown != nil {
 			unknown.Release()
 		}
-		ole.CoUninitialize()
 	}
 
 	// if we error'ed here, clean up immediately
@@ -150,14 +145,6 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 			deferFn()
 		}
 	}()
-
-	err = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
-	if err != nil {
-		oleCode := err.(*ole.OleError).Code()
-		if oleCode != ole.S_OK && oleCode != S_FALSE {
-			return nil, nil, err
-		}
-	}
 
 	unknown, err = oleutil.CreateObject("WbemScripting.SWbemLocator")
 	if err != nil {
@@ -188,6 +175,8 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 // https://docs.microsoft.com/en-us/windows/desktop/WmiSdk/swbemlocator-connectserver
 // for details.
 func (c *Client) CallMethod(connectServerArgs []interface{}, className, methodName string, params []interface{}) (int32, error) {
+	comshim.Add(1)
+	defer comshim.Done()
 	service, cleanup, err := c.coinitService(connectServerArgs...)
 	if err != nil {
 		return 0, fmt.Errorf("coinit: %v", err)
@@ -239,9 +228,9 @@ func (c *Client) Query(query string, dst interface{}, connectServerArgs ...inter
 
 	lock.Lock()
 	defer lock.Unlock()
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
+	comshim.Add(1)
+	defer comshim.Done()
 	service, cleanup, err := c.coinitService(connectServerArgs...)
 	if err != nil {
 		return err
@@ -467,7 +456,7 @@ func (c *Client) loadEntity(dst interface{}, src *ole.IDispatch) (errFieldMismat
 					Reason:     "not a Float64",
 				}
 			}
-		
+
 		default:
 			if f.Kind() == reflect.Slice {
 				switch f.Type().Elem().Kind() {
