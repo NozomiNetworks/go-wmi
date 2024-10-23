@@ -6,7 +6,6 @@ package wmi
 import (
 	"fmt"
 	"reflect"
-	"runtime"
 	"sync"
 
 	"github.com/NozomiNetworks/go-comshim"
@@ -77,9 +76,6 @@ func (s *SWbemServices) Close() error {
 
 func (s *SWbemServices) process(initError chan error) {
 	//fmt.Println("process: starting background thread initialization")
-	//All OLE/WMI calls must happen on the same initialized thead, so lock this goroutine
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 
 	err := comshim.TryAdd(1)
 	defer comshim.Done()

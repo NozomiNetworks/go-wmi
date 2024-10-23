@@ -44,7 +44,6 @@ var (
 	// ErrNilCreateObject is the error returned if CreateObject returns nil even
 	// if the error was nil.
 	ErrNilCreateObject = errors.New("wmi: create object returned nil")
-	lock               sync.Mutex
 )
 
 // S_FALSE is returned by CoInitializeEx if it was already called on this thread.
@@ -112,10 +111,18 @@ type Client struct {
 	// initialized and then reused across multiple queries. If it is null
 	// then the method will initialize a new temporary client each time.
 	SWbemServicesClient *SWbemServices
+
+	// with comshim we can do multithread wquery with different clients
+	lock sync.Mutex
 }
 
 // DefaultClient is the default Client and is used by Query, QueryNamespace, and CallMethod.
+// Deprecated: Use NewClient
 var DefaultClient = &Client{}
+
+func NewClient() *Client {
+	return &Client{}
+}
 
 // coinitService coinitializes WMI service. If no error is returned, a cleanup function
 // is returned which must be executed (usually deferred) to clean up allocated resources.
@@ -175,8 +182,11 @@ func (c *Client) coinitService(connectServerArgs ...interface{}) (*ole.IDispatch
 // https://docs.microsoft.com/en-us/windows/desktop/WmiSdk/swbemlocator-connectserver
 // for details.
 func (c *Client) CallMethod(connectServerArgs []interface{}, className, methodName string, params []interface{}) (int32, error) {
-	comshim.Add(1)
+	err := comshim.TryAdd(1)
 	defer comshim.Done()
+	if err != nil {
+		return 0, fmt.Errorf("comshim: %v", err)
+	}
 	service, cleanup, err := c.coinitService(connectServerArgs...)
 	if err != nil {
 		return 0, fmt.Errorf("coinit: %v", err)
@@ -226,11 +236,14 @@ func (c *Client) Query(query string, dst interface{}, connectServerArgs ...inter
 		return ErrInvalidEntityType
 	}
 
-	lock.Lock()
-	defer lock.Unlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 
-	comshim.Add(1)
+	err := comshim.TryAdd(1)
 	defer comshim.Done()
+	if err != nil {
+		return fmt.Errorf("comshim: %v", err)
+	}
 	service, cleanup, err := c.coinitService(connectServerArgs...)
 	if err != nil {
 		return err

@@ -213,9 +213,10 @@ func TestWMIConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < limit; i++ {
+			c := NewClient()
 			var dst []Win32_PerfRawData_PerfDisk_LogicalDisk
 			q := CreateQuery(&dst, "")
-			err := Query(q, &dst)
+			err := c.Query(q, &dst)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -224,9 +225,10 @@ func TestWMIConcurrent(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i > -limit; i-- {
+			c := NewClient()
 			var dst []Win32_OperatingSystem
 			q := CreateQuery(&dst, "")
-			err := Query(q, &dst)
+			err := c.Query(q, &dst)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -245,17 +247,34 @@ func TestCocurrentCoInitializeDoesNotPanic(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := 0; i < limit; i++ {
+			c := NewClient()
 			var dst []Win32_PerfRawData_PerfDisk_LogicalDisk
 			q := CreateQuery(&dst, "")
-			_ = Query(q, &dst)
+			_ = c.Query(q, &dst)
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		defer ole.CoUninitialize()
+		time.Sleep(time.Millisecond * 3)
 		_ = ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	}()
 	wg.Wait()
+}
+
+func TestWmiFailIfAlreadyInitializedWithoutComShim(t *testing.T) {
+	err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	if err != nil {
+		t.Fatal("First CoInitializeEx failed")
+	}
+	defer ole.CoUninitialize()
+	c := NewClient()
+	var dst []Win32_PerfRawData_PerfDisk_LogicalDisk
+	q := CreateQuery(&dst, "")
+	err = c.Query(q, &dst)
+	if err == nil {
+		t.Fatal("CoInitializeEx from comshim should fail")
+	}
 }
 
 // Run using: go test -run TestMemoryWMISimple -timeout 60m
